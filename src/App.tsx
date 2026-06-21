@@ -4,12 +4,16 @@ import { useEffect, useState } from 'react'
 // 导入的版本已绑定本项目 model, 直接给 viewId 即可。
 import { ReactLikeC4, useLikeC4Views } from 'likec4:react'
 import { StatusElementNode } from './StatusElementNode'
-import { loadConfig, openNode } from './config'
+import { loadConfig, openNode, nodeKeys } from './config'
 import { startStatusPolling } from './status'
 
 export function App() {
   const views = useLikeC4Views()
-  const [viewId, setViewId] = useState<string>(() => views[0]?.id ?? '')
+  // 默认落在总览 (index)。useLikeC4Views() 顺序不保证, 不能用 views[0]
+  // (实测有时返回的首项是某个子视图, 导致刷新后不在总览)。
+  const [viewId, setViewId] = useState<string>(
+    () => views.find((v) => v.id === 'index')?.id ?? views[0]?.id ?? '',
+  )
 
   useEffect(() => {
     void loadConfig()
@@ -37,7 +41,19 @@ export function App() {
             controls
             fitView
             style={{ height: '100%' }}
-            onNodeClick={(node) => openNode(node)}
+            onNodeClick={(node) => {
+              // 总览里点分组 → 钻进对应子视图 (view of <group>);
+              // 没有对应钻取视图的 (叶子服务) 才按 URL 打开。
+              const keys = nodeKeys(node)
+              const drill = views.find(
+                (v) => v.viewOf != null && keys.includes(String(v.viewOf)),
+              )
+              if (drill) {
+                setViewId(drill.id)
+                return
+              }
+              openNode(node)
+            }}
             renderNodes={{ element: StatusElementNode }}
           />
         )}
