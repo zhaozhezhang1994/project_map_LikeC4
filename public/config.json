@@ -1,0 +1,19 @@
+{
+  "_comment": "示例部署绑定. key=model.likec4 节点短名. url=点击打开. adapter+target=查状态/控制 (docker=容器名 / process_compose=进程名 / http=探活URL)。这里的 demo-* 容器名是占位, 换成你自己的真实容器名即可。凭据(CH密码/控制token)走 env, 绝不进此文件。",
+  "nodes": {
+    "web":        { "title": "Web 前端",   "url": "http://localhost:8080", "adapter": "docker", "target": "demo-web" },
+    "adminUi":    { "title": "Admin UI",   "url": "http://localhost:8081", "adapter": "docker", "target": "demo-admin-ui" },
+
+    "api":        { "title": "API 服务",   "url": "http://localhost:3000", "adapter": "docker", "target": "demo-api" },
+    "worker":     { "title": "Worker",     "adapter": "docker", "target": "demo-worker" },
+    "scheduler":  { "title": "定时任务",   "adapter": "process_compose", "target": "scheduler" },
+
+    "postgres":   { "title": "PostgreSQL", "adapter": "docker", "target": "demo-postgres" },
+    "redis":      { "title": "Redis",      "adapter": "docker", "target": "demo-redis" },
+    "kafka":      { "title": "Kafka",      "adapter": "docker", "target": "demo-kafka" },
+
+    "grafana":    { "title": "Grafana",    "url": "http://localhost:3001", "adapter": "docker", "target": "demo-grafana" },
+    "prometheus": { "title": "Prometheus", "url": "http://localhost:9090", "adapter": "http", "target": "http://host.docker.internal:9090/-/healthy" },
+    "uptime":     { "title": "Uptime 探活","url": "http://localhost:3002", "adapter": "http", "target": "http://host.docker.internal:3002/" }
+  }
+}

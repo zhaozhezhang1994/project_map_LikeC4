@@ -1,0 +1,14 @@
+{
+  "_comment": "离线/演示用种子状态 (key=节点短名)。后端 sidecar 起来后前端轮询 /api/status 取真实状态, 不读本文件 (见 src/status.ts 的 STATUS_URL)。这里只是没后端时的样子 + 演示 up/down/degraded/pending/unknown 颜色。",
+  "web":        { "status": "up", "anomaly_count": 0 },
+  "adminUi":    { "status": "up", "anomaly_count": 0 },
+  "api":        { "status": "degraded", "anomaly_count": 2 },
+  "worker":     { "status": "up", "anomaly_count": 0 },
+  "scheduler":  { "status": "pending", "anomaly_count": 0 },
+  "postgres":   { "status": "up", "anomaly_count": 0 },
+  "redis":      { "status": "up", "anomaly_count": 0 },
+  "kafka":      { "status": "up", "anomaly_count": 0 },
+  "grafana":    { "status": "up", "anomaly_count": 0 },
+  "prometheus": { "status": "down", "anomaly_count": 1 },
+  "uptime":     { "status": "up", "anomaly_count": 0 }
+}

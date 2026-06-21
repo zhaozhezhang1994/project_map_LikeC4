@@ -1,0 +1,15 @@
+# 统一行尾,避免 Windows autocrlf 把脚本/配置写成 CRLF 后在 Linux 容器里崩
+# (踩过:CRLF 让容器内 shell 脚本报 `bash\r: no such file`)
+* text=auto eol=lf
+*.sh   text eol=lf
+*.mjs  text eol=lf
+*.yaml text eol=lf
+*.yml  text eol=lf
+*.likec4 text eol=lf
+*.conf text eol=lf
+Dockerfile text eol=lf
+
+# 二进制别动
+*.png binary
+*.jpg binary
+*.ico binary

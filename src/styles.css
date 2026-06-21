@@ -1,0 +1,63 @@
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  font-family: system-ui, -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
+  background: #0b1020;
+  color: #e6edf3;
+}
+
+.tabs {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  background: #0b1020;
+  border-bottom: 1px solid #1c2540;
+  flex-wrap: wrap;
+}
+
+.brand {
+  font-weight: 700;
+  margin-right: 0.75rem;
+  white-space: nowrap;
+}
+
+.tab {
+  padding: 0.35rem 0.8rem;
+  border: 1px solid #2a3658;
+  background: #121a33;
+  color: #c7d2e8;
+  border-radius: 999px;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+.tab:hover {
+  background: #1a2547;
+}
+
+.tab.active {
+  background: #2563eb;
+  border-color: #2563eb;
+  color: #fff;
+}
+
+.diagram {
+  flex: 1;
+  min-height: 0;
+}
+
+/* 注: 节点的状态染色环 + 红点用 inline style 实现 (见 StatusElementNode.tsx),
+   因为 ReactLikeC4 渲染进 Shadow DOM, 这里的全局 CSS 穿不进去。 */

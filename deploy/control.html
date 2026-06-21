@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>项目导航地图 · 控制台 (仅本机)</title>
+<!--
+  独立控制页, 只经 nginx 的 127.0.0.1:7099 块提供 (LAN 不可达)。
+  不嵌进 map.local: 避免 CORS + 避免 token 出现在 LAN 能下载的 SPA bundle 里。
+  token 只存这页的 JS 内存 (不落 localStorage/cookie/URL)。
+-->
+<style>
+  body { margin: 0; padding: 1.2rem 1.5rem; font-family: system-ui, "Microsoft YaHei", sans-serif;
+         background: #0b1020; color: #e6edf3; }
+  h1 { font-size: 1.2rem; margin: 0 0 .2rem; }
+  h1 small { color: #8b98b8; font-weight: 400; font-size: .8rem; }
+  .bar { margin: .8rem 0; display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; }
+  input { background: #121a33; border: 1px solid #2a3658; color: #e6edf3; padding: .35rem .6rem;
+          border-radius: 6px; width: 22rem; max-width: 60vw; }
+  #msg { font-size: .9rem; }
+  table { border-collapse: collapse; width: 100%; max-width: 760px; }
+  th, td { text-align: left; padding: .5rem .6rem; border-bottom: 1px solid #1c2540; font-size: .9rem; }
+  th { color: #8b98b8; font-weight: 600; }
+  button { background: #1a2547; border: 1px solid #2a3658; color: #c7d2e8; padding: .25rem .7rem;
+           border-radius: 6px; cursor: pointer; margin-right: .3rem; font-size: .82rem; }
+  button:hover { background: #2563eb; border-color: #2563eb; color: #fff; }
+  .dot { font-size: 1rem; vertical-align: middle; }
+  #out { margin-top: 1rem; max-width: 1000px; max-height: 40vh; overflow: auto; background: #060912;
+         border: 1px solid #1c2540; border-radius: 6px; padding: .6rem .8rem; font-size: .78rem;
+         white-space: pre-wrap; word-break: break-all; color: #c7d2e8; display: none; }
+</style>
+</head>
+<body>
+  <h1>🛠 项目导航地图 · 控制台 <small>仅本机 127.0.0.1:7099 · 高危操作</small></h1>
+  <div class="bar">
+    <label>操作 token: <input type="password" id="tok" placeholder="MAP_OPERATOR_TOKEN (只存本页内存)" autocomplete="off" /></label>
+    <span id="msg"></span>
+  </div>
+  <table>
+    <thead><tr><th>节点</th><th>状态</th><th>异常</th><th>操作</th></tr></thead>
+    <tbody id="rows"></tbody>
+  </table>
+  <pre id="out"></pre>
+
+<script>
+  var COLOR = { up:"#22c55e", down:"#ef4444", degraded:"#f59e0b", pending:"#38bdf8", unknown:"#64748b" };
+
+  function setMsg(t, err) {
+    var m = document.getElementById("msg");
+    m.textContent = t; m.style.color = err ? "#ef4444" : "#22c55e";
+  }
+
+  async function load() {
+    try {
+      var r = await fetch("api/status", { cache: "no-store" });
+      var data = await r.json();
+      var tb = document.getElementById("rows");
+      tb.innerHTML = "";
+      Object.keys(data).sort().forEach(function (k) {
+        var s = data[k];
+        var acts = (s.actions || []).map(function (op) {
+          return '<button onclick="act(\'' + op + "','" + k + "')\">" + op + "</button>";
+        }).join("");
+        if ((s.actions || []).length) acts += '<button onclick="showLogs(\'' + k + "')\">logs</button>";
+        var tr = document.createElement("tr");
+        tr.innerHTML =
+          "<td>" + k + "</td>" +
+          '<td><span class="dot" style="color:' + (COLOR[s.status] || "#888") + '">●</span> ' + s.status + "</td>" +
+          "<td>" + (s.anomaly_count || "") + "</td>" +
+          "<td>" + (acts || "—") + "</td>";
+        tb.appendChild(tr);
+      });
+    } catch (e) { setMsg("读取状态失败: " + e, true); }
+  }
+
+  async function act(op, node) {
+    var tok = document.getElementById("tok").value.trim();
+    if (!tok) { setMsg("请先填 token", true); return; }
+    if (!confirm("确认对 [" + node + "] 执行 " + op + " ?")) return;
+    setMsg(op + " " + node + " ...");
+    try {
+      var r = await fetch("control/" + op, {
+        method: "POST",
+        headers: { "Authorization": "Bearer " + tok, "Content-Type": "application/json" },
+        body: JSON.stringify({ node: node }),
+      });
+      var j = await r.json().catch(function () { return {}; });
+      if (r.ok) setMsg("✅ " + op + " " + node + " ok (" + (j.duration_ms || "?") + "ms)");
+      else setMsg("❌ " + op + " " + node + ": " + r.status + " " + (j.detail || ""), true);
+    } catch (e) { setMsg("请求失败: " + e, true); }
+    setTimeout(load, 1500);
+  }
+  window.act = act;
+
+  async function showLogs(node) {
+    var tok = document.getElementById("tok").value.trim();
+    if (!tok) { setMsg("请先填 token", true); return; }
+    var out = document.getElementById("out");
+    out.style.display = "block";
+    out.textContent = "读取 " + node + " 日志...";
+    try {
+      var r = await fetch("control/logs?node=" + encodeURIComponent(node) + "&tail=200",
+        { headers: { "Authorization": "Bearer " + tok } });
+      var j = await r.json().catch(function () { return {}; });
+      if (r.ok) out.textContent = "# " + node + " (最近 " + (j.lines || []).length + " 行)\n" + (j.lines || []).join("\n");
+      else { out.textContent = "读取失败: " + r.status + " " + (j.detail || ""); }
+    } catch (e) { out.textContent = "请求失败: " + e; }
+  }
+  window.showLogs = showLogs;
+
+  load();
+  setInterval(load, 5000);
+</script>
+</body>
+</html>

@@ -1,0 +1,37 @@
+name: CI
+
+# 推上 GitHub 后自动跑。验证三个会坏的点: 模型合法 / 前端能构建 / sidecar 能编译。
+on:
+  push:
+  pull_request:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install deps
+        run: npm install
+
+      - name: Validate LikeC4 model (SSOT)
+        run: npx likec4 validate model
+
+      - name: Build frontend (vite)
+        run: npm run build
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Compile sidecar
+        run: python -m py_compile api/main.py
+
+      - name: Validate docker-compose
+        run: docker compose config -q

@@ -1,0 +1,87 @@
+// ── 项目导航地图 · 示例模型 (SSOT) ───────────────────────────
+// 这是一份**通用示例**, 演示一个典型 Web 栈如何画成可导航的状态地图。
+// 换成你自己的项目: 改这里的节点/分组/关系, 再到 public/config.json 配每个节点的
+//   url(点击打开) + adapter/target(查状态: docker 容器名 / process_compose 进程名 / http 探活)。
+// element id = config.json 的 key。结构在这里, 部署绑定在 config.json, 两者分离。
+
+specification {
+  element group
+  element service
+  element store {
+    style { shape cylinder }
+  }
+  element queue {
+    style { shape queue }
+  }
+}
+
+model {
+  // ① 前端 ────────────────────────────────────────────────
+  frontend = group '① 前端' {
+    web = service 'Web 前端' { description '用户界面 (SPA)' }
+    adminUi = service 'Admin UI' { description '后台管理界面' }
+  }
+
+  // ② 后端 ────────────────────────────────────────────────
+  backend = group '② 后端' {
+    api = service 'API 服务' { description 'REST / GraphQL 接口' }
+    worker = service 'Worker' { description '异步任务消费者 (无 UI)' }
+    scheduler = service '定时任务' { description 'cron 调度 (process_compose 适配器示例)' }
+  }
+
+  // ③ 数据 ────────────────────────────────────────────────
+  data = group '③ 数据' {
+    postgres = store 'PostgreSQL' { description '主库' }
+    redis = service 'Redis' { description '缓存 / 会话' }
+    kafka = queue 'Kafka' { description '事件总线' }
+  }
+
+  // ④ 运维 ────────────────────────────────────────────────
+  ops = group '④ 运维' {
+    grafana = service 'Grafana' { description '监控面板' }
+    prometheus = service 'Prometheus' { description '指标采集 (http 探活适配器示例)' }
+    uptime = service 'Uptime 探活' { description '外部健康检查 (http 适配器示例)' }
+  }
+
+  // ── 数据流 (示例) ──
+  web -> api 'HTTP'
+  adminUi -> api 'HTTP'
+  api -> postgres 'SQL'
+  api -> redis 'cache'
+  api -> kafka 'events'
+  kafka -> worker 'consume'
+  worker -> postgres 'write'
+  prometheus -> api 'scrape'
+}
+
+views {
+  view index {
+    title '总览 · 四块 (点任意块钻进去)'
+    include frontend, backend, data, ops
+    autoLayout TopBottom
+  }
+
+  view of frontend {
+    title '① 前端'
+    include *, backend.api
+    autoLayout LeftRight
+  }
+
+  view of backend {
+    title '② 后端'
+    include *, data.postgres, data.redis, data.kafka, frontend.web
+    autoLayout LeftRight
+  }
+
+  view of data {
+    title '③ 数据'
+    include *, backend.api, backend.worker
+    autoLayout LeftRight
+  }
+
+  view of ops {
+    title '④ 运维'
+    include *, backend.api
+    autoLayout LeftRight
+  }
+}

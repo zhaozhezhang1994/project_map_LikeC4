@@ -1,0 +1,71 @@
+services:
+  project-map:
+    build:
+      context: .
+      args:
+        # 默认公网源 (OSS 通用); 国内在 .env 设 NPM_REGISTRY=https://registry.npmmirror.com 覆盖
+        NPM_REGISTRY: ${NPM_REGISTRY:-https://registry.npmjs.org}
+    container_name: project-map
+    ports:
+      - "3002:80"                 # LAN 可达, 只读状态/地图; 已在 PORTS.md 登记; map.local → :3002
+      - "127.0.0.1:7099:7099"     # 🔒 控制端点专用, 仅宿主本机 loopback (1B); Caddy 绝不反代它
+    restart: unless-stopped
+    depends_on:
+      - project-map-api
+    extra_hosts:
+      - "host.docker.internal:host-gateway"   # Linux 兼容; 适配器回连宿主机 API 用
+
+  # sidecar 状态 API + 控制。不发布宿主端口, 只经 project-map nginx 反代
+  # (/api/ 走 0.0.0.0:80 只读; /control/ 仅走 127.0.0.1:7099)。
+  project-map-api:
+    build:
+      context: ./api
+      args:
+        # 默认公网源; 国内在 .env 设 PIP_INDEX=https://pypi.tuna.tsinghua.edu.cn/simple 覆盖
+        PIP_INDEX: ${PIP_INDEX:-https://pypi.org/simple}
+    container_name: project-map-api
+    restart: unless-stopped
+    expose:
+      - "7004"
+    depends_on:
+      - docker-socket-proxy
+    volumes:
+      - ./public/config.json:/app/config.json:ro
+      - ./audit:/app/audit                       # 控制审计 NDJSON (持久化, gitignored)
+    environment:
+      # 1B 起 docker 走 socket-proxy (不再直挂 socket); SDK 读 DOCKER_HOST。
+      - DOCKER_HOST=tcp://docker-socket-proxy:2375
+      # 2A 异常计数 (可选): 不配则 anomaly_count 恒 0。密码从 .env 注入, 不硬编码。
+      - PROCESS_COMPOSE_URL=${PROCESS_COMPOSE_URL:-http://host.docker.internal:18790}
+      - CLICKHOUSE_URL=${CLICKHOUSE_URL:-http://host.docker.internal:8123}
+      - CLICKHOUSE_USER=${CLICKHOUSE_USER:-default}
+      - CLICKHOUSE_PASSWORD=${CLICKHOUSE_PASSWORD:-}
+      - CLICKHOUSE_DB=${CLICKHOUSE_DB:-discord_pipeline}
+      - ALERT_WINDOW_MIN=${ALERT_WINDOW_MIN:-60}
+      # 1B 控制: 默认关。开了必须设 MAP_OPERATOR_TOKEN (≥32 随机)。
+      - MAP_CONTROL_ENABLED=${MAP_CONTROL_ENABLED:-false}
+      - MAP_OPERATOR_TOKEN=${MAP_OPERATOR_TOKEN:-}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"   # 1.5A: 回连宿主 process-compose:18790 / Dagu:8101
+
+  # Docker API 白名单反代 (借 wollomatic/socket-proxy, MIT)。**路径级**白名单:
+  # 只放行 GET 查询(version/_ping/containers/<id>/json) + POST containers/<id>/(restart|stop|start)。
+  # ⚠️ 为什么不用 tecnativa: 它只能按"资源类别+方法"粗粒度, POST+CONTAINERS 会连
+  #    POST /containers/<id>/exec 一起放行(实测 exec 返 201 未拦) → 笼子有洞。wollomatic
+  #    按"方法+路径正则"细粒度, exec/create 不匹配 POST 白名单 → 403(实测已验)。
+  # 仅内网可达(不发布宿主端口); sidecar 经 DOCKER_HOST=tcp://docker-socket-proxy:2375 用。
+  docker-socket-proxy:
+    # 钉 digest (复现性 + 供应链): 它是安全笼子关键件, :1 浮动 tag 被改可能悄悄改笼子。
+    # 升级流程: 拉新 :1 → 实测 exec→403/restart→204 → 换这行 digest。
+    image: wollomatic/socket-proxy:1@sha256:ad9df81849436b5ddae36396e2aefd6562d4cd587d1b65fcb5ac71e4578c9da3
+    container_name: project-map-socket-proxy
+    restart: unless-stopped
+    user: "0:0"   # Docker Desktop 的 socket root 属主, 非 root 读不到; 安全边界是路径白名单非 uid
+    command:
+      - "-loglevel=info"
+      - "-listenip=0.0.0.0"
+      - "-allowfrom=0.0.0.0/0"   # proxy 不发布宿主端口, 仅 internal 网可达; 网络隔离是边界
+      - "-allowGET=^(/v[0-9.]+)?/(version|_ping|containers/[a-zA-Z0-9_.-]+/(json|logs))$$"
+      - "-allowPOST=^(/v[0-9.]+)?/containers/[a-zA-Z0-9_.-]+/(restart|stop|start)$$"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro

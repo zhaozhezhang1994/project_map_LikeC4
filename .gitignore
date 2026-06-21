@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.likec4/
+*.log
+.env
+.playwright-mcp/
+audit/
+__pycache__/
+*.pyc
+.private/
