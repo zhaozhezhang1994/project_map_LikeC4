@@ -69,6 +69,21 @@ views {
     autoLayout TopBottom
   }
 
+  // 数据流向: 用 LikeC4 动态视图 (原生"流程/链路"机制) —— 按步骤排布、不画业务分组框,
+  // 流向能从左到右一眼读通, 同时保留 live 状态环 + 异常红点 + 点击开 UI。
+  // (对照: 普通 view 强制画业务包含框, 会把节点拽回所属组、打散流向。)
+  dynamic view request_flow {
+    title '数据流向 · 端到端链路 (请求 → API → 库/缓存/总线 → 消费)'
+    web -> api 'HTTP'
+    adminUi -> api 'HTTP'
+    api -> postgres 'SQL'
+    api -> redis 'cache'
+    api -> kafka 'events'
+    kafka -> worker 'consume'
+    worker -> postgres 'write'
+    autoLayout LeftRight
+  }
+
   view of frontend {
     title '① 前端'
     include *, backend.api
