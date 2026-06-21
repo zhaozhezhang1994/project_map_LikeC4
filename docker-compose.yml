@@ -40,7 +40,7 @@ services:
       - CLICKHOUSE_URL=${CLICKHOUSE_URL:-http://host.docker.internal:8123}
       - CLICKHOUSE_USER=${CLICKHOUSE_USER:-default}
       - CLICKHOUSE_PASSWORD=${CLICKHOUSE_PASSWORD:-}
-      - CLICKHOUSE_DB=${CLICKHOUSE_DB:-discord_pipeline}
+      - CLICKHOUSE_DB=${CLICKHOUSE_DB:-default}
       - ALERT_WINDOW_MIN=${ALERT_WINDOW_MIN:-60}
       # 1B 控制: 默认关。开了必须设 MAP_OPERATOR_TOKEN (≥32 随机)。
       - MAP_CONTROL_ENABLED=${MAP_CONTROL_ENABLED:-false}

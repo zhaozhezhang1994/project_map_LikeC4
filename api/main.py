@@ -47,7 +47,7 @@ PROCESS_COMPOSE_URL = os.getenv("PROCESS_COMPOSE_URL", "http://host.docker.inter
 CLICKHOUSE_URL = os.getenv("CLICKHOUSE_URL", "http://host.docker.internal:8123")
 CLICKHOUSE_USER = os.getenv("CLICKHOUSE_USER", "default")
 CLICKHOUSE_PASSWORD = os.getenv("CLICKHOUSE_PASSWORD", "")
-CLICKHOUSE_DB = os.getenv("CLICKHOUSE_DB", "discord_pipeline")
+CLICKHOUSE_DB = os.getenv("CLICKHOUSE_DB", "default")
 ALERT_WINDOW_MIN = int(os.getenv("ALERT_WINDOW_MIN", "60"))
 
 
