@@ -1,5 +1,5 @@
 {
-  "_comment": "示例部署绑定. key=model.likec4 节点短名. url=点击打开. adapter+target=查状态/控制 (docker=容器名 / process_compose=进程名 / http=探活URL)。这里的 demo-* 容器名是占位, 换成你自己的真实容器名即可。凭据(CH密码/控制token)走 env, 绝不进此文件。",
+  "_comment": "示例部署绑定. key=model.likec4 节点短名. url=点击打开. adapter+target=查状态/控制 (docker=容器名 / process_compose=进程名 / http=探活URL)。这里的 demo-* 容器名是占位, 换成你自己的真实容器名即可。凭据(CH密码/控制token)走 env, 绝不进此文件。后端服务+它的UI前台嵌套时(见 postgres/kafka): 后端的 url 指向人能看的 UI, 点后端或点 UI 都落同一页, 但状态各探各的容器。",
   "nodes": {
     "web":        { "title": "Web 前端",   "url": "http://localhost:8080", "adapter": "docker", "target": "demo-web" },
     "adminUi":    { "title": "Admin UI",   "url": "http://localhost:8081", "adapter": "docker", "target": "demo-admin-ui" },
@@ -8,9 +8,11 @@
     "worker":     { "title": "Worker",     "adapter": "docker", "target": "demo-worker" },
     "scheduler":  { "title": "定时任务",   "adapter": "process_compose", "target": "scheduler" },
 
-    "postgres":   { "title": "PostgreSQL", "adapter": "docker", "target": "demo-postgres" },
+    "postgres":   { "title": "PostgreSQL", "url": "http://localhost:8082", "adapter": "docker", "target": "demo-postgres" },
+    "adminer":    { "title": "Adminer",    "url": "http://localhost:8082", "adapter": "docker", "target": "demo-adminer" },
     "redis":      { "title": "Redis",      "adapter": "docker", "target": "demo-redis" },
-    "kafka":      { "title": "Kafka",      "adapter": "docker", "target": "demo-kafka" },
+    "kafka":      { "title": "Kafka",      "url": "http://localhost:8083", "adapter": "docker", "target": "demo-kafka" },
+    "kafkaUI":    { "title": "Kafka UI",   "url": "http://localhost:8083", "adapter": "docker", "target": "demo-kafka-ui" },
 
     "grafana":    { "title": "Grafana",    "url": "http://localhost:3001", "adapter": "docker", "target": "demo-grafana" },
     "prometheus": { "title": "Prometheus", "url": "http://localhost:9090", "adapter": "http", "target": "http://host.docker.internal:9090/-/healthy" },

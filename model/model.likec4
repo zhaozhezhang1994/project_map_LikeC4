@@ -31,9 +31,17 @@ model {
 
   // ③ 数据 ────────────────────────────────────────────────
   data = group '③ 数据' {
-    postgres = store 'PostgreSQL' { description '主库' }
+    // 后端服务 + 它自己的展示前台 = 一个单元 (UI 嵌在后端里, 视觉上"包"在一起)。
+    // 状态各自独立 (后端容器 / UI 容器分开探活), 但点击统一落到人能看的 UI。
+    postgres = store 'PostgreSQL' {
+      description '主库'
+      adminer = service 'Adminer' { description 'DB Web 管理界面' }
+    }
     redis = service 'Redis' { description '缓存 / 会话' }
-    kafka = queue 'Kafka' { description '事件总线' }
+    kafka = queue 'Kafka' {
+      description '事件总线'
+      kafkaUI = service 'Kafka UI' { description 'Topic · 消息 · Consumer Group' }
+    }
   }
 
   // ④ 运维 ────────────────────────────────────────────────
@@ -75,7 +83,9 @@ views {
 
   view of data {
     title '③ 数据'
-    include *, backend.api, backend.worker
+    // postgres.* / kafka.* 展开嵌套的 UI 子节点 (Adminer / Kafka UI),
+    // 否则 include * 只取直接子节点, 子节点的子节点(UI)会被折叠隐藏。
+    include *, postgres.*, kafka.*, backend.api, backend.worker
     autoLayout LeftRight
   }
 
