@@ -1,5 +1,6 @@
 import { elementNode, ElementNode } from 'likec4/react'
 import { useStatusFor, type Health } from './status'
+import { nodeKeys, nodeMembers } from './config'
 
 // 自定义 element 节点渲染器: 复用 LikeC4 默认节点外观 (视觉一致),
 // 外面按健康度套一圈染色环 + 异常数红点。这是 Phase 1 "状态覆盖层"的注入点。
@@ -16,7 +17,9 @@ const RING: Record<Health, string | null> = {
 }
 
 export const StatusElementNode = elementNode(({ nodeProps, nodeModel }) => {
-  const st = useStatusFor(String(nodeModel.id))
+  // 普通节点: 按自身 key 查状态。粗粒度系统节点 (config 里带 members): 聚合成员状态。
+  const node = { id: String(nodeModel.id) }
+  const st = useStatusFor(nodeKeys(node), nodeMembers(node))
   const ring = RING[st.status]
   return (
     <div

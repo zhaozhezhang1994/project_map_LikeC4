@@ -8,6 +8,7 @@ export type NodeConfig = {
   url?: string // 点击节点打开的系统首页 (*.local 等); 无 = 后端服务无 web UI, 点了不跳
   title?: string
   container?: string // 真实容器/进程名 (Phase 1 适配器用)
+  members?: string[] // 粗粒度"系统全景"节点的成员 key; 有则状态在前端聚合 (取最坏 + 异常求和)
 }
 
 export type MapConfig = { nodes: Record<string, NodeConfig> }
@@ -39,6 +40,15 @@ export function nodeUrl(node: { id?: string; modelFqn?: string }): string | unde
     if (u) return u
   }
   return undefined
+}
+
+// 粗粒度系统节点的成员 key 列表 (有则前端聚合状态)。普通节点返回 []。
+export function nodeMembers(node: { id?: string; modelFqn?: string }): string[] {
+  for (const k of nodeKeys(node)) {
+    const m = cfg.nodes[k]?.members
+    if (m && m.length) return m
+  }
+  return []
 }
 
 // onNodeClick: 有 URL 就新标签打开对应系统首页; 无 URL (后端服务) 静默忽略。

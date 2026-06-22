@@ -9,10 +9,14 @@ import { startStatusPolling } from './status'
 
 export function App() {
   const views = useLikeC4Views()
-  // 默认落在总览 (index)。useLikeC4Views() 顺序不保证, 不能用 views[0]
-  // (实测有时返回的首项是某个子视图, 导致刷新后不在总览)。
+  // 默认落在"系统全景"(landscape, 日常一眼看健康) → 退回总览 (index) → views[0]。
+  // useLikeC4Views() 顺序不保证, 不能直接用 views[0]。
   const [viewId, setViewId] = useState<string>(
-    () => views.find((v) => v.id === 'index')?.id ?? views[0]?.id ?? '',
+    () =>
+      views.find((v) => v.id === 'landscape')?.id ??
+      views.find((v) => v.id === 'index')?.id ??
+      views[0]?.id ??
+      '',
   )
 
   useEffect(() => {
@@ -42,6 +46,16 @@ export function App() {
             fitView
             style={{ height: '100%' }}
             onNodeClick={(node) => {
+              // 系统全景里点粗粒度块 (id 形如 'quantSys') → 钻进该块详细视图
+              // (view id 去掉 'Sys' = 'quant'), 出问题一眼看哪个成员红。
+              const last = String((node as { id?: string }).id ?? '').split('.').pop() ?? ''
+              if (last.endsWith('Sys')) {
+                const blockView = views.find((v) => v.id === last.replace(/Sys$/, ''))
+                if (blockView) {
+                  setViewId(blockView.id)
+                  return
+                }
+              }
               // 总览里点分组 → 钻进对应子视图 (view of <group>);
               // 没有对应钻取视图的 (叶子服务) 才按 URL 打开。
               const keys = nodeKeys(node)
