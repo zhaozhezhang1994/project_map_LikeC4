@@ -6,10 +6,12 @@
 适配器 (只读):
   - **docker** (1A): 官方 docker SDK, containers.get(target).status → 归一化
   - **process_compose** (1.5A): GET {PROCESS_COMPOSE_URL}/processes, 按进程名查 is_running
+  - **http**: GET target, 有响应=up/连不上=down (宿主独立进程, 如 Syncthing)
+  - **dagu**: GET {DAGU_URL}/api/v1/dags, 按 DAG 名查"上次运行成败"(succeeded→up/failed→down)。
+    区别于 docker/pc 的"进程活着没" —— 定时任务 cron 触发完即退, 进程级探不到失败。
   - **anomaly_count** (2A): 查 ClickHouse alerts_log, 按节点 `alert_sources` 前缀匹配,
     数"当前仍在告警"的来源数 (每个 source 取窗口内最新一条, 仅 warn/error/critical 计;
     _ok 恢复=info 不计)。alert-platform.* 的告警是"关于别的服务"的 → 映射到被监控节点。
-  - dagu / http-probe → 后续 (当前 model 无对应节点)
   - **控制 (1B/1.5B)**: POST /control/{restart|stop|start} — docker + process_compose, 全套安全笼子。
     (logs 留后续: 形态不同, 要 tail 上限。process-compose 动作路径:
      restart/start=POST /process/{op}/{name}, stop=PATCH /process/stop/{name} —— stop 是 PATCH, 实测确认。)
@@ -42,6 +44,7 @@ from fastapi import FastAPI, HTTPException, Request
 
 CONFIG_PATH = Path(os.getenv("MAP_CONFIG", "/app/config.json"))
 PROCESS_COMPOSE_URL = os.getenv("PROCESS_COMPOSE_URL", "http://host.docker.internal:18790")
+DAGU_URL = os.getenv("DAGU_URL", "http://host.docker.internal:8101")
 
 # 异常计数 (2A): 查 ClickHouse alerts_log。凭据走 env (B 类), 绝不进 config。
 CLICKHOUSE_URL = os.getenv("CLICKHOUSE_URL", "http://host.docker.internal:8123")
@@ -145,6 +148,36 @@ def _pc_status(p: dict) -> str:
     return "down"
 
 
+# ── Dagu 适配器 (只读, 一次拉全部): 查每个 DAG "上次运行成败" ──────
+# 区别于 docker/pc 的"进程活着没" —— 定时任务是 cron 触发完即退, 进程级探不到失败。
+# target = DAG 名。映射 latestDAGRun.statusLabel: succeeded→up / failed→down /
+# running·queued→degraded / 没跑过·其它→unknown。
+def _fetch_dagu() -> dict | None:
+    """返回 {DAG 名: 归一化状态}; 拉不到返回 None (→ 节点 unknown)。"""
+    try:
+        with urllib.request.urlopen(f"{DAGU_URL}/api/v1/dags?limit=200", timeout=4) as r:
+            data = json.loads(r.read().decode("utf-8"))
+        out = {}
+        for x in data.get("dags", []):
+            name = (x.get("dag") or {}).get("name")
+            label = ((x.get("latestDAGRun") or {}).get("statusLabel") or "").lower()
+            if name:
+                out[name] = _dagu_status(label)
+        return out
+    except Exception:
+        return None
+
+
+def _dagu_status(status_label: str) -> str:
+    if status_label == "succeeded":
+        return "up"
+    if status_label == "failed":
+        return "down"
+    if status_label in ("running", "queued", "partial success"):
+        return "degraded"
+    return "unknown"  # not started / 没跑过 / 未知
+
+
 # ── 异常计数适配器 (2A, 查 ClickHouse alerts_log) ──────────
 def _ch_query(sql: str) -> list | None:
     """POST SQL 到 CH HTTP, 凭据走 header (不进 URL/日志)。失败返 None。"""
@@ -217,6 +250,11 @@ def status():
         if any(n.get("adapter") == "process_compose" for n in nodes.values())
         else None
     )
+    dagu_map = (
+        _fetch_dagu()
+        if any(n.get("adapter") == "dagu" for n in nodes.values())
+        else None
+    )
 
     for key, n in nodes.items():
         adapter = n.get("adapter")
@@ -230,6 +268,11 @@ def status():
                 out[key] = _result(pc_map.get(target, "down"))  # 不在列表 = 没在跑
         elif adapter == "http" and target:
             out[key] = _http_status(target)  # 宿主独立进程, 探 HTTP 口
+        elif adapter == "dagu" and target:
+            if dagu_map is None:
+                out[key] = dict(UNKNOWN)  # 拉不到 Dagu API
+            else:
+                out[key] = _result(dagu_map.get(target, "unknown"))  # 上次运行成败
         # 其它/无 adapter → 不输出, 前端按 unknown 处理
 
     # 2A: 叠加异常计数 (红点)。status=存活, anomaly_count=告警, 两者独立。

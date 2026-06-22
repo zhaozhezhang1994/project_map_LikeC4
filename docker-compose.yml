@@ -37,6 +37,7 @@ services:
       - DOCKER_HOST=tcp://docker-socket-proxy:2375
       # 2A 异常计数 (可选): 不配则 anomaly_count 恒 0。密码从 .env 注入, 不硬编码。
       - PROCESS_COMPOSE_URL=${PROCESS_COMPOSE_URL:-http://host.docker.internal:18790}
+      - DAGU_URL=${DAGU_URL:-http://host.docker.internal:8101}
       - CLICKHOUSE_URL=${CLICKHOUSE_URL:-http://host.docker.internal:8123}
       - CLICKHOUSE_USER=${CLICKHOUSE_USER:-default}
       - CLICKHOUSE_PASSWORD=${CLICKHOUSE_PASSWORD:-}
