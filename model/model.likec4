@@ -1,11 +1,11 @@
 // ── 项目导航地图 · 示例模型 (SSOT) ───────────────────────────
-// 这是一份**通用示例**, 演示一个典型 Web 栈如何画成可导航的状态地图。
-// 换成你自己的项目: 改这里的节点/分组/关系, 再到 public/config.json 配每个节点的
-//   url(点击打开) + adapter/target(查状态: docker 容器名 / process_compose 进程名 / http 探活)。
-// element id = config.json 的 key。结构在这里, 部署绑定在 config.json, 两者分离。
+// 通用示例: 演示一个典型 Web 栈画成可导航的状态地图。
+// 业务"块"用 **tag** 表达(可多归属), **不用嵌套组** —— 一个服务能同时属于多个块
+// (如 worker 既是后端、又是数据管道的消费环节, 双 tag), 块视图按 tag 扁平拉取、
+// 流向不被业务框打散。UI 前台仍用嵌套(如 PostgreSQL{Adminer} / Kafka{Kafka UI})。
+// 换成你自己的项目: 改节点/tag/关系, 再到 public/config.json 配 url + adapter/target。
 
 specification {
-  element group
   element service
   element store {
     style { shape cylinder }
@@ -13,42 +13,72 @@ specification {
   element queue {
     style { shape queue }
   }
+
+  tag frontend
+  tag backend
+  tag data
+  tag ops
 }
 
 model {
-  // ① 前端 ────────────────────────────────────────────────
-  frontend = group '① 前端' {
-    web = service 'Web 前端' { description '用户界面 (SPA)' }
-    adminUi = service 'Admin UI' { description '后台管理界面' }
+  // ① 前端
+  web = service 'Web 前端' {
+    #frontend
+    description '用户界面 (SPA)'
+  }
+  adminUi = service 'Admin UI' {
+    #frontend
+    description '后台管理界面'
   }
 
-  // ② 后端 ────────────────────────────────────────────────
-  backend = group '② 后端' {
-    api = service 'API 服务' { description 'REST / GraphQL 接口' }
-    worker = service 'Worker' { description '异步任务消费者 (无 UI)' }
-    scheduler = service '定时任务' { description 'cron 调度 (process_compose 适配器示例)' }
+  // ② 后端 (worker 也是数据管道消费环节 → 双 tag, 演示多归属)
+  api = service 'API 服务' {
+    #backend
+    description 'REST / GraphQL 接口'
+  }
+  worker = service 'Worker' {
+    #backend #data
+    description '异步任务消费者 (无 UI)'
+  }
+  scheduler = service '定时任务' {
+    #backend
+    description 'cron 调度 (process_compose 适配器示例)'
   }
 
-  // ③ 数据 ────────────────────────────────────────────────
-  data = group '③ 数据' {
-    // 后端服务 + 它自己的展示前台 = 一个单元 (UI 嵌在后端里, 视觉上"包"在一起)。
-    // 状态各自独立 (后端容器 / UI 容器分开探活), 但点击统一落到人能看的 UI。
-    postgres = store 'PostgreSQL' {
-      description '主库'
-      adminer = service 'Adminer' { description 'DB Web 管理界面' }
+  // ③ 数据 (后端服务 + UI 前台嵌套: PostgreSQL{Adminer} / Kafka{Kafka UI})
+  postgres = store 'PostgreSQL' {
+    #data
+    description '主库'
+    adminer = service 'Adminer' {
+      #data
+      description 'DB Web 管理界面'
     }
-    redis = service 'Redis' { description '缓存 / 会话' }
-    kafka = queue 'Kafka' {
-      description '事件总线'
-      kafkaUI = service 'Kafka UI' { description 'Topic · 消息 · Consumer Group' }
+  }
+  redis = service 'Redis' {
+    #data
+    description '缓存 / 会话'
+  }
+  kafka = queue 'Kafka' {
+    #data
+    description '事件总线'
+    kafkaUI = service 'Kafka UI' {
+      #data
+      description 'Topic · 消息 · Consumer Group'
     }
   }
 
-  // ④ 运维 ────────────────────────────────────────────────
-  ops = group '④ 运维' {
-    grafana = service 'Grafana' { description '监控面板' }
-    prometheus = service 'Prometheus' { description '指标采集 (http 探活适配器示例)' }
-    uptime = service 'Uptime 探活' { description '外部健康检查 (http 适配器示例)' }
+  // ④ 运维
+  grafana = service 'Grafana' {
+    #ops
+    description '监控面板'
+  }
+  prometheus = service 'Prometheus' {
+    #ops
+    description '指标采集 (http 探活适配器示例)'
+  }
+  uptime = service 'Uptime 探活' {
+    #ops
+    description '外部健康检查 (http 适配器示例)'
   }
 
   // ── 数据流 (示例) ──
@@ -63,15 +93,26 @@ model {
 }
 
 views {
+  // 总览: view 级 group 画块框(脱离嵌套), 每框含成员(带 live 状态)。
+  // 多 tag 节点放主块: worker 归"后端"。
   view index {
-    title '总览 · 四块 (点任意块钻进去)'
-    include frontend, backend, data, ops
+    title '总览 · 四块 (块内含成员 + 状态)'
+    group '① 前端' {
+      include web, adminUi
+    }
+    group '② 后端' {
+      include api, worker, scheduler
+    }
+    group '③ 数据' {
+      include postgres, redis, kafka
+    }
+    group '④ 运维' {
+      include grafana, prometheus, uptime
+    }
     autoLayout TopBottom
   }
 
-  // 数据流向: 用 LikeC4 动态视图 (原生"流程/链路"机制) —— 按步骤排布、不画业务分组框,
-  // 流向能从左到右一眼读通, 同时保留 live 状态环 + 异常红点 + 点击开 UI。
-  // (对照: 普通 view 强制画业务包含框, 会把节点拽回所属组、打散流向。)
+  // 数据流向: dynamic view —— 按步骤排、不画块框, 流向左→右一眼读通, 保留状态环/红点/点击。
   dynamic view request_flow {
     title '数据流向 · 端到端链路 (请求 → API → 库/缓存/总线 → 消费)'
     web -> api 'HTTP'
@@ -84,29 +125,29 @@ views {
     autoLayout LeftRight
   }
 
-  view of frontend {
+  // 块视图: 按 tag 扁平拉取。多 tag 节点(worker)同时出现在它所属的每个块视图,
+  // 不带业务框(模型已扁平), 所以"③ 数据"里 Kafka→worker→PostgreSQL 块内连通。
+  view frontend {
     title '① 前端'
-    include *, backend.api
+    include * where tag is #frontend
     autoLayout LeftRight
   }
 
-  view of backend {
+  view backend {
     title '② 后端'
-    include *, data.postgres, data.redis, data.kafka, frontend.web
+    include * where tag is #backend
     autoLayout LeftRight
   }
 
-  view of data {
-    title '③ 数据'
-    // postgres.* / kafka.* 展开嵌套的 UI 子节点 (Adminer / Kafka UI),
-    // 否则 include * 只取直接子节点, 子节点的子节点(UI)会被折叠隐藏。
-    include *, postgres.*, kafka.*, backend.api, backend.worker
+  view data {
+    title '③ 数据 (含跨块 worker, 块内连通)'
+    include * where tag is #data
     autoLayout LeftRight
   }
 
-  view of ops {
+  view ops {
     title '④ 运维'
-    include *, backend.api
+    include * where tag is #ops
     autoLayout LeftRight
   }
 }
