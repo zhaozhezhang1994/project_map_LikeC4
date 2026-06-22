@@ -18,6 +18,7 @@ specification {
   tag backend
   tag data
   tag ops
+  tag system     // 粗粒度"系统全景"节点 (只在 landscape 视图)
 }
 
 model {
@@ -90,9 +91,40 @@ model {
   kafka -> worker 'consume'
   worker -> postgres 'write'
   prometheus -> api 'scrape'
+
+  // ── 系统全景: 粗粒度块 (聚合状态在前端按 config.members 算, 只在 landscape) ──
+  frontendSys = service '① 前端' {
+    #system
+    description 'Web + Admin UI'
+  }
+  backendSys = service '② 后端' {
+    #system
+    description 'API · Worker · 定时任务'
+  }
+  dataSys = service '③ 数据' {
+    #system
+    description 'PostgreSQL · Redis · Kafka'
+  }
+  opsSys = service '④ 运维' {
+    #system
+    description 'Grafana · Prometheus · Uptime'
+  }
+
+  // 块级关系(影响链)
+  frontendSys -> backendSys 'HTTP'
+  backendSys -> dataSys 'SQL / cache / events'
+  opsSys -> backendSys 'scrape'
 }
 
 views {
+  // 系统全景(日常落地): 粗粒度块 + 影响链, 聚合状态(块内任一服务挂 → 块红)。
+  // 点块钻进对应详细视图定位。
+  view landscape {
+    title '系统全景 · 块健康 + 影响链 (日常)'
+    include * where tag is #system
+    autoLayout LeftRight
+  }
+
   // 总览: view 级 group 画块框(脱离嵌套), 每框含成员(带 live 状态)。
   // 多 tag 节点放主块: worker 归"后端"。
   view index {

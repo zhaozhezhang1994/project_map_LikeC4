@@ -16,6 +16,11 @@
 
     "grafana":    { "title": "Grafana",    "url": "http://localhost:3001", "adapter": "docker", "target": "demo-grafana" },
     "prometheus": { "title": "Prometheus", "url": "http://localhost:9090", "adapter": "http", "target": "http://host.docker.internal:9090/-/healthy" },
-    "uptime":     { "title": "Uptime 探活","url": "http://localhost:3002", "adapter": "http", "target": "http://host.docker.internal:3002/" }
+    "uptime":     { "title": "Uptime 探活","url": "http://localhost:3002", "adapter": "http", "target": "http://host.docker.internal:3002/" },
+
+    "frontendSys": { "title": "① 前端", "members": ["web","adminUi"] },
+    "backendSys":  { "title": "② 后端", "members": ["api","worker","scheduler"] },
+    "dataSys":     { "title": "③ 数据", "members": ["postgres","adminer","redis","kafka","kafkaUI"] },
+    "opsSys":      { "title": "④ 运维", "members": ["grafana","prometheus","uptime"] }
   }
 }
