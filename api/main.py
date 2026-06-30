@@ -6,7 +6,7 @@
 适配器 (只读):
   - **docker** (1A): 官方 docker SDK, containers.get(target).status → 归一化
   - **process_compose** (1.5A): GET {PROCESS_COMPOSE_URL}/processes, 按进程名查 is_running
-  - **http**: GET target, 有响应=up/连不上=down (宿主独立进程, 如 Syncthing)
+  - **http**: GET target, 有响应=up/连不上=down (宿主独立进程, 如 Dagu)
   - **dagu**: GET {DAGU_URL}/api/v1/dags, 按 DAG 名查"上次运行成败"(succeeded→up/failed→down)。
     区别于 docker/pc 的"进程活着没" —— 定时任务 cron 触发完即退, 进程级探不到失败。
   - **anomaly_count** (2A): 查 ClickHouse alerts_log, 按节点 `alert_sources` 前缀匹配,
@@ -112,7 +112,7 @@ def _docker_status(client, target: str) -> dict:
 # ── http 探活适配器 (只读): 宿主独立进程/有 HTTP 口但非 docker/pc 的 ──
 def _http_status(target: str) -> dict:
     """GET target: 任何响应(2xx/3xx/401/403/5xx)= up(活着); 连不上/超时 = down。
-    用于 Dagu / Syncthing 等宿主独立进程 (经 host.docker.internal 回连)。"""
+    用于 Dagu 等宿主独立进程 (经 host.docker.internal 回连)。"""
     try:
         req = urllib.request.Request(target, method="GET")
         with urllib.request.urlopen(req, timeout=4):
